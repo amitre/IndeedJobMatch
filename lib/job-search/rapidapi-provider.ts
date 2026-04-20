@@ -6,7 +6,7 @@ export class RapidAPIProvider implements JobSearchProvider {
 
   async search(params: JobSearchParams): Promise<JobSearchResult> {
     const apiKey = process.env.RAPIDAPI_KEY;
-    const host = process.env.RAPIDAPI_HOST ?? 'jsearch.p.rapidapi.com';
+    const host = process.env.RAPIDAPI_HOST ?? 'jsearch27.p.rapidapi.com';
     if (!apiKey) throw new Error('RAPIDAPI_KEY not set');
 
     const url = new URL(`https://${host}/search`);
