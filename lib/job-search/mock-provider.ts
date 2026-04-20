@@ -3,6 +3,118 @@ import type { JobSearchProvider } from './provider-interface';
 
 const MOCK_JOBS: Job[] = [
   {
+    id: 'il-1',
+    title: 'Senior Product Manager',
+    company: 'Wix.com',
+    location: 'Tel Aviv, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 45000, max: 65000, currency: 'ILS', period: 'annual' },
+    description: `Wix is looking for a Senior Product Manager to lead our core editor platform. You will define the product strategy, work closely with engineering, design, and business stakeholders, and drive features used by millions of users worldwide.\n\nRequirements:\n- 5+ years of product management experience\n- Experience in B2B or SaaS products\n- Strong analytical skills and data-driven mindset\n- Excellent communication skills in English and Hebrew\n- Experience working in agile/scrum environments\n- Background in web technologies or e-commerce is a plus`,
+    snippet: 'Lead product strategy for the core editor platform used by millions worldwide.',
+    url: 'https://www.wix.com/jobs',
+    postedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-2',
+    title: 'VP Product',
+    company: 'monday.com',
+    location: 'Tel Aviv, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 60000, max: 90000, currency: 'ILS', period: 'annual' },
+    description: `monday.com is hiring a VP Product to lead our Work OS product lines. You will manage a team of product managers, set the long-term product vision, and work hand-in-hand with the CEO and executive team.\n\nRequirements:\n- 8+ years of product management experience, 3+ in leadership\n- Proven track record scaling SaaS products\n- Strong understanding of enterprise software needs\n- Experience managing large cross-functional teams\n- Excellent English — written and spoken\n- MBA or equivalent is an advantage`,
+    snippet: 'Lead product vision and a team of PMs for a leading Work OS platform.',
+    url: 'https://monday.com/jobs',
+    postedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-3',
+    title: 'Product Manager – Mobile',
+    company: 'Gett',
+    location: 'Tel Aviv, Israel',
+    remote: true,
+    jobType: 'full-time',
+    salary: { min: 35000, max: 50000, currency: 'ILS', period: 'annual' },
+    description: `Gett is looking for a Product Manager to own our mobile consumer experience. You will define the roadmap, collaborate with mobile engineers, and run A/B experiments to improve conversion and retention.\n\nRequirements:\n- 3+ years PM experience in mobile products\n- Strong data skills (SQL, Mixpanel or similar)\n- Passion for consumer-facing products\n- Experience with iOS/Android development cycles\n- Ability to work in a fast-paced startup environment`,
+    snippet: 'Own the mobile consumer experience roadmap in a fast-paced mobility startup.',
+    url: 'https://gett.com/jobs',
+    postedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-4',
+    title: 'Head of Business Development',
+    company: 'AppsFlyer',
+    location: 'Tel Aviv, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 50000, max: 75000, currency: 'ILS', period: 'annual' },
+    description: `AppsFlyer is looking for a Head of Business Development to drive strategic partnerships and new revenue channels. You will identify and close partnership deals, work with C-level executives, and build a BD team.\n\nRequirements:\n- 7+ years of BD/partnerships experience in tech\n- Proven deal-making track record\n- Deep understanding of the mobile marketing ecosystem\n- Strong network in the Israeli and global tech industry\n- Fluent English, Hebrew is a plus`,
+    snippet: 'Drive strategic partnerships and build a BD team at a global marketing tech leader.',
+    url: 'https://www.appsflyer.com/jobs',
+    postedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-5',
+    title: 'Product Manager – Platform',
+    company: 'JFrog',
+    location: 'Petah Tikva, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 38000, max: 55000, currency: 'ILS', period: 'annual' },
+    description: `JFrog is hiring a Product Manager to own our DevOps platform. You will drive the roadmap for our Artifactory and Pipelines products, work with enterprise customers, and define APIs consumed by millions of developers.\n\nRequirements:\n- 4+ years of product management in developer tools or DevOps\n- Technical background (CS degree or equivalent)\n- Experience working with enterprise clients\n- Strong understanding of CI/CD workflows\n- Excellent English communication skills`,
+    snippet: 'Own the roadmap for DevOps platform products used by millions of developers.',
+    url: 'https://jfrog.com/jobs',
+    postedAt: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-6',
+    title: 'Business Development Manager',
+    company: 'Fiverr',
+    location: 'Tel Aviv, Israel',
+    remote: true,
+    jobType: 'full-time',
+    salary: { min: 30000, max: 45000, currency: 'ILS', period: 'annual' },
+    description: `Fiverr is looking for a Business Development Manager to grow strategic partnerships in EMEA. You will identify new revenue opportunities, manage partner relationships, and work closely with the product and marketing teams.\n\nRequirements:\n- 4+ years of BD or partnerships in tech/marketplace\n- Experience with freelance or gig economy platforms is a plus\n- Strong negotiation and communication skills\n- Data-driven with experience using CRM tools\n- Fluent in English; additional languages are a plus`,
+    snippet: 'Grow strategic EMEA partnerships for a leading global freelance marketplace.',
+    url: 'https://www.fiverr.com/jobs',
+    postedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-7',
+    title: 'Product Lead – AdTech',
+    company: 'Outbrain',
+    location: 'Netanya, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 40000, max: 58000, currency: 'ILS', period: 'annual' },
+    description: `Outbrain is looking for a Product Lead to define strategy for our programmatic advertising platform. You will work with data scientists, engineers, and sales teams to build the next generation of AI-powered ad targeting.\n\nRequirements:\n- 5+ years of PM experience, preferably in AdTech or MarTech\n- Understanding of programmatic advertising and RTB\n- Strong analytical and technical skills\n- Experience with large-scale data products\n- Excellent English communication`,
+    snippet: 'Define strategy for AI-powered programmatic advertising at a global AdTech leader.',
+    url: 'https://www.outbrain.com/jobs',
+    postedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
+    id: 'il-8',
+    title: 'Director of Product Management',
+    company: 'CyberArk',
+    location: 'Petah Tikva, Israel',
+    remote: false,
+    jobType: 'full-time',
+    salary: { min: 55000, max: 80000, currency: 'ILS', period: 'annual' },
+    description: `CyberArk is looking for a Director of Product Management to lead our Identity Security platform. You will own the multi-year roadmap, manage a team of PMs, and work closely with enterprise customers and the executive team.\n\nRequirements:\n- 8+ years of product experience, including people management\n- Background in cybersecurity or enterprise software\n- Strong customer-facing skills\n- Experience with SaaS and on-premise products\n- Excellent English skills`,
+    snippet: 'Lead Identity Security platform roadmap and PM team at a global cybersecurity leader.',
+    url: 'https://www.cyberark.com/jobs',
+    postedAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+    source: 'mock',
+  },
+  {
     id: 'mock-1',
     title: 'Senior Software Engineer',
     company: 'TechCorp Inc.',
@@ -179,9 +291,15 @@ export class MockProvider implements JobSearchProvider {
     const query = params.query.toLowerCase();
     const keywords = query.split(/\s+/);
 
+    const locationFilter = params.location?.toLowerCase();
     let filtered = MOCK_JOBS.filter((job) => {
       if (params.remoteOnly && !job.remote) return false;
       if (params.jobType && params.jobType !== 'any' && job.jobType !== params.jobType) return false;
+      if (locationFilter) {
+        const jobLoc = job.location.toLowerCase();
+        const isIsrael = locationFilter.includes('israel') || locationFilter.includes('tel aviv') || locationFilter.includes('תל אביב');
+        if (isIsrael) return jobLoc.includes('israel') || jobLoc.includes('tel aviv') || jobLoc.includes('netanya') || jobLoc.includes('petah') || job.remote;
+      }
       return true;
     });
 
