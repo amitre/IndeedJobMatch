@@ -22,7 +22,10 @@ export class RapidAPIProvider implements JobSearchProvider {
       },
     });
 
-    if (!res.ok) throw new Error(`RapidAPI JSearch error: ${res.status}`);
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      throw new Error(`RapidAPI JSearch error: ${res.status} | host: ${host} | key_prefix: ${apiKey.slice(0, 8)} | body: ${body.slice(0, 200)}`);
+    }
     const data = await res.json();
 
     const jobs: Job[] = (data.data ?? []).slice(0, params.maxResults ?? 10).map((r: Record<string, unknown>) => ({
