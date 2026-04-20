@@ -28,39 +28,25 @@ export function QuestionForm({ questions }: Props) {
 
     const get = (id: string) => answers[id];
 
-    // Match by question ID keywords so Claude-generated IDs like "preferred_city" still work
-    const findAnswer = (...keywords: string[]) => {
-      const direct = keywords.map(get).find((v) => v !== undefined);
-      if (direct !== undefined) return direct;
-      const key = Object.keys(answers).find((k) => keywords.some((kw) => k.toLowerCase().includes(kw)));
-      return key ? answers[key] : undefined;
-    };
-
-    // Also match by question text for maximum robustness
-    const findByText = (...keywords: string[]) => {
-      const q = questions.find((q) => keywords.some((kw) => q.text.toLowerCase().includes(kw)));
-      return q ? answers[q.id] : undefined;
-    };
-
-    const locationVal = findAnswer('location', 'city', 'region', 'where') ?? findByText('location', 'city', 'where', 'work');
+    const locationVal = get('preferred_location');
     const locations = typeof locationVal === 'string'
       ? [locationVal]
       : Array.isArray(locationVal) ? locationVal : [];
 
-    const titleVal = findAnswer('job_title', 'title', 'role', 'position') ?? findByText('title', 'role', 'position', 'job');
+    const titleVal = get('desired_job_titles');
     const titles = typeof titleVal === 'string'
       ? [titleVal]
       : Array.isArray(titleVal) ? titleVal : [];
 
-    const remoteVal = String(findAnswer('remote', 'work_type', 'work_mode', 'hybrid') ?? findByText('remote', 'hybrid', 'onsite', 'office') ?? 'any').toLowerCase();
+    const remoteVal = String(get('remote_preference') ?? 'any').toLowerCase();
     const remoteMap: Record<string, UserPreferences['remotePreference']> = {
       remote: 'remote', hybrid: 'hybrid', onsite: 'onsite', 'on-site': 'onsite', any: 'any',
     };
 
-    const salaryVal = findAnswer('salary', 'compensation', 'pay') ?? findByText('salary', 'compensation', 'pay', 'expect');
+    const salaryVal = get('salary_min');
     const salaryMin = typeof salaryVal === 'number' ? salaryVal : undefined;
 
-    const jobTypeVal = String(findAnswer('job_type', 'employment_type', 'contract') ?? findByText('employment', 'contract', 'full-time', 'part-time') ?? 'any').toLowerCase();
+    const jobTypeVal = String(get('job_type') ?? 'any').toLowerCase();
     const jobTypeMap: Record<string, UserPreferences['jobType']> = {
       'full-time': 'full-time', 'full time': 'full-time', part: 'part-time', contract: 'contract', internship: 'internship', any: 'any',
     };

@@ -67,7 +67,7 @@ Education: ${cv.education.map((e) => `${e.degree} in ${e.field}`).join(', ')}
     messages: [
       {
         role: 'user',
-        content: `Based on this candidate profile, generate 4-5 targeted onboarding questions to understand their job search preferences. Always include: desired job title(s), location preferences, remote/hybrid/onsite preference, salary range, and job type. Make questions specific to their background. Always write the questions in English regardless of the CV language.\n\nCandidate profile:\n${cvSummary}`,
+        content: `Based on this candidate profile, generate 4-5 targeted onboarding questions to understand their job search preferences. Always write the questions in English regardless of the CV language.\n\nYou MUST include these exact question IDs (use these precise id values):\n- id: "desired_job_titles" — ask about desired job title(s)\n- id: "preferred_location" — ask about preferred work location (city/country)\n- id: "remote_preference" — ask about remote/hybrid/onsite preference\n- id: "salary_min" — ask about minimum expected salary (use range type)\n- id: "job_type" — ask about job type (full-time/part-time/contract)\n\nMake the question TEXT specific and personalized to their background.\n\nCandidate profile:\n${cvSummary}`,
       },
     ],
   });

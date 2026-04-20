@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       await saveSession(session).catch(() => {});
     }
 
+    console.log('[Questions] generated IDs:', questions.map((q) => `${q.id}(${q.type})`).join(', '));
     return NextResponse.json({ questions });
   } catch (e) {
     console.error('[Questions]', e);
