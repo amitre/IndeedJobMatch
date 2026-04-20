@@ -67,7 +67,7 @@ Education: ${cv.education.map((e) => `${e.degree} in ${e.field}`).join(', ')}
     messages: [
       {
         role: 'user',
-        content: `Based on this candidate profile, generate 4-5 targeted onboarding questions to understand their job search preferences. Always include: desired job title(s), location preferences, remote/hybrid/onsite preference, salary range, and job type. Make questions specific to their background.\n\nCandidate profile:\n${cvSummary}`,
+        content: `Based on this candidate profile, generate 4-5 targeted onboarding questions to understand their job search preferences. Always include: desired job title(s), location preferences, remote/hybrid/onsite preference, salary range, and job type. Make questions specific to their background. Always write the questions in English regardless of the CV language.\n\nCandidate profile:\n${cvSummary}`,
       },
     ],
   });

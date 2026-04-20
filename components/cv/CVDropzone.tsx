@@ -17,9 +17,14 @@ export function CVDropzone({ onParsed }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const ACCEPTED = new Set([
+    'application/pdf',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ]);
+
   const handleFile = (f: File) => {
-    if (f.type !== 'application/pdf') {
-      setError('Only PDF files are supported.');
+    if (!ACCEPTED.has(f.type)) {
+      setError('Only PDF and Word (.docx) files are supported.');
       return;
     }
     if (f.size > 10 * 1024 * 1024) {
@@ -73,7 +78,7 @@ export function CVDropzone({ onParsed }: Props) {
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf"
+          accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
           className="hidden"
           onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
         />
@@ -92,7 +97,7 @@ export function CVDropzone({ onParsed }: Props) {
           ) : (
             <div>
               <p className="font-medium text-gray-700">Drop your CV here or click to upload</p>
-              <p className="text-sm text-gray-500 mt-1">PDF only, max 10 MB</p>
+              <p className="text-sm text-gray-500 mt-1">PDF or Word (.docx) · Hebrew &amp; English · max 10 MB</p>
             </div>
           )}
         </div>

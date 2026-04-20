@@ -110,7 +110,7 @@ export async function structureCVWithClaude(rawText: string): Promise<ParsedCV> 
     messages: [
       {
         role: 'user',
-        content: `Extract and structure all information from this resume/CV:\n\n${truncated}`,
+        content: `Extract and structure all information from this resume/CV. The CV may be written in Hebrew, English, or a mix of both — handle either language correctly. For Hebrew text, read right-to-left and extract names, companies, job titles, and skills accurately. Return all text fields in their original language (do not translate).\n\nCV text:\n${truncated}`,
       },
     ],
   });
