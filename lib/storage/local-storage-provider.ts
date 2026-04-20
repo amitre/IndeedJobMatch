@@ -5,7 +5,7 @@ import type { StorageProvider } from './storage-interface';
 import type { SessionData } from '@/types/session';
 import type { FeedbackEntry } from '@/types/feedback';
 
-const DATA_DIR = path.join(process.cwd(), 'data');
+const DATA_DIR = process.env.VERCEL ? '/tmp/data' : path.join(process.cwd(), 'data');
 const SESSIONS_DIR = path.join(DATA_DIR, 'sessions');
 const FEEDBACK_FILE = path.join(DATA_DIR, 'feedback.json');
 
