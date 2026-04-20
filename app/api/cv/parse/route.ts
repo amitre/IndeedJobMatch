@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ sessionId, cv });
   } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[CV parse]', e);
-    return NextResponse.json({ error: 'Failed to parse CV. Please try again.' }, { status: 500 });
+    return NextResponse.json({ error: `Parse failed: ${msg}` }, { status: 500 });
   }
 }
