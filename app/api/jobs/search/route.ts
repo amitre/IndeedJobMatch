@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
       provider: searchResult.provider,
     });
   } catch (e) {
-    console.error('[Jobs search]', e);
-    return NextResponse.json({ error: 'Failed to search jobs. Please try again.' }, { status: 500 });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[Jobs search]', msg, e);
+    return NextResponse.json({ error: `Job search failed: ${msg}` }, { status: 500 });
   }
 }
