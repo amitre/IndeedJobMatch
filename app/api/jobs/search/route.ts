@@ -26,12 +26,8 @@ export async function POST(req: NextRequest) {
 
     const feedbackContext = session ? await buildFeedbackContext(session.sessionId) : '';
 
-    const searchQuery = [
-      ...(preferences.desiredJobTitles.length ? preferences.desiredJobTitles : [cv.workExperience[0]?.title ?? '']),
-      ...cv.skills.slice(0, 3).map((s) => s.name),
-    ]
-      .filter(Boolean)
-      .join(' ');
+    const primaryTitle = preferences.desiredJobTitles[0] ?? cv.workExperience[0]?.title ?? 'Product Manager';
+    const searchQuery = primaryTitle;
 
     const provider = getJobSearchProvider();
     const searchResult = await provider.search({

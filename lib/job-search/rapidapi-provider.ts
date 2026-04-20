@@ -17,7 +17,11 @@ export class RapidAPIProvider implements JobSearchProvider {
 
     const searchText = `${params.query} ${params.location ?? ''}`.toLowerCase();
     const isIsrael = searchText.includes('israel') || searchText.includes('tel aviv') || searchText.includes('תל אביב');
-    if (isIsrael) url.searchParams.set('country', 'il');
+    if (isIsrael) {
+      url.searchParams.set('country', 'il');
+      // Override query to include Israel explicitly so the API ranks Israeli results first
+      url.searchParams.set('query', `${params.query} Israel`);
+    }
 
     console.log('[RapidAPI] query:', url.searchParams.get('query'), '| country:', url.searchParams.get('country') ?? 'default', '| location param:', params.location);
 
