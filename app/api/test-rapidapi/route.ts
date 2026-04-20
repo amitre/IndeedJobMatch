@@ -3,23 +3,23 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   const apiKey = process.env.RAPIDAPI_KEY;
   const host = process.env.RAPIDAPI_HOST ?? 'jsearch.p.rapidapi.com';
-
   if (!apiKey) return NextResponse.json({ error: 'RAPIDAPI_KEY not set' });
 
-  const url = `https://${host}/search?query=product+manager+in+Tel+Aviv&num_pages=1&page=1&country=il`;
+  const queries = [
+    { query: 'product manager Tel Aviv', country: 'il' },
+    { query: 'product manager Israel', country: 'il' },
+    { query: 'product manager Tel Aviv Israel', country: 'us' },
+    { query: 'product manager', country: 'il' },
+  ];
 
-  const res = await fetch(url, {
-    headers: {
-      'X-RapidAPI-Key': apiKey,
-      'X-RapidAPI-Host': host,
-    },
-  });
+  const results = await Promise.all(queries.map(async ({ query, country }) => {
+    const url = `https://${host}/search?query=${encodeURIComponent(query)}&num_pages=1&page=1&country=${country}`;
+    const res = await fetch(url, {
+      headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': host },
+    });
+    const data = await res.json();
+    return { query, country, status: res.status, count: data.data?.length ?? 0, first: data.data?.[0]?.job_title };
+  }));
 
-  const body = await res.text();
-  return NextResponse.json({
-    status: res.status,
-    host,
-    key_prefix: apiKey.slice(0, 12),
-    body: body.slice(0, 500),
-  });
+  return NextResponse.json(results);
 }
