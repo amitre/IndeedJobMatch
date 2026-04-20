@@ -1,0 +1,62 @@
+export const maxDuration = 60;
+
+import { NextRequest, NextResponse } from 'next/server';
+import { getSession, saveSession } from '@/lib/session/session-manager';
+import { getJobSearchProvider } from '@/lib/job-search/provider-interface';
+import { matchJobWithClaude } from '@/lib/matcher/claude-matcher';
+import { buildFeedbackContext } from '@/lib/feedback/feedback-context';
+import type { UserPreferences } from '@/types/preferences';
+import type { JobWithMatch } from '@/types/matching';
+
+export async function POST(req: NextRequest) {
+  try {
+    const session = await getSession();
+    if (!session?.cv) {
+      return NextResponse.json({ error: 'No active session or CV not uploaded' }, { status: 401 });
+    }
+
+    const { preferences } = (await req.json()) as { preferences: UserPreferences };
+
+    session.preferences = preferences;
+    await saveSession(session);
+
+    const feedbackContext = await buildFeedbackContext(session.sessionId);
+
+    const searchQuery = [
+      ...(preferences.desiredJobTitles.length ? preferences.desiredJobTitles : [session.cv.workExperience[0]?.title ?? '']),
+      ...session.cv.skills.slice(0, 3).map((s) => s.name),
+    ]
+      .filter(Boolean)
+      .join(' ');
+
+    const provider = getJobSearchProvider();
+    const searchResult = await provider.search({
+      query: searchQuery,
+      location: preferences.preferredLocations[0],
+      remoteOnly: preferences.remotePreference === 'remote',
+      jobType: preferences.jobType !== 'any' ? preferences.jobType : undefined,
+      maxResults: 12,
+    });
+
+    const dismissedIds = new Set(session.dismissedJobIds ?? []);
+    const jobs = searchResult.jobs.filter((j) => !dismissedIds.has(j.id));
+
+    const matchedJobs: JobWithMatch[] = await Promise.all(
+      jobs.map(async (job) => {
+        const match = await matchJobWithClaude(job, session.cv!, feedbackContext);
+        return { ...job, match };
+      })
+    );
+
+    matchedJobs.sort((a, b) => b.match.score - a.match.score);
+
+    return NextResponse.json({
+      jobs: matchedJobs,
+      totalFound: searchResult.totalFound,
+      provider: searchResult.provider,
+    });
+  } catch (e) {
+    console.error('[Jobs search]', e);
+    return NextResponse.json({ error: 'Failed to search jobs. Please try again.' }, { status: 500 });
+  }
+}

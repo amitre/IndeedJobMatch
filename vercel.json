@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "app/api/jobs/search/route.ts": { "maxDuration": 60 },
+    "app/api/cv/parse/route.ts": { "maxDuration": 30 }
+  }
+}
