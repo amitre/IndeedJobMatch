@@ -15,6 +15,11 @@ export class RapidAPIProvider implements JobSearchProvider {
     url.searchParams.set('page', '1');
     if (params.remoteOnly) url.searchParams.set('remote_jobs_only', 'true');
 
+    const loc = (params.location ?? '').toLowerCase();
+    if (loc.includes('israel') || loc.includes('tel aviv') || loc.includes('תל אביב')) {
+      url.searchParams.set('country', 'il');
+    }
+
     const res = await fetch(url.toString(), {
       headers: {
         'X-RapidAPI-Key': apiKey,

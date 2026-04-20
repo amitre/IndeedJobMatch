@@ -6,7 +6,7 @@ export async function GET() {
 
   if (!apiKey) return NextResponse.json({ error: 'RAPIDAPI_KEY not set' });
 
-  const url = `https://${host}/search?query=product+manager+in+Tel+Aviv&num_pages=1&page=1`;
+  const url = `https://${host}/search?query=product+manager+in+Tel+Aviv&num_pages=1&page=1&country=il`;
 
   const res = await fetch(url, {
     headers: {
