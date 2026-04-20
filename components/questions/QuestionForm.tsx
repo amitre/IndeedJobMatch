@@ -76,10 +76,12 @@ export function QuestionForm({ questions }: Props) {
 
     try {
       const preferences = buildPreferences();
+      const cvRaw = sessionStorage.getItem('cv');
+      const cv = cvRaw ? JSON.parse(cvRaw) : undefined;
       const res = await fetch('/api/jobs/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ preferences }),
+        body: JSON.stringify({ preferences, cv }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? 'Search failed');

@@ -6,25 +6,29 @@ import { getJobSearchProvider } from '@/lib/job-search/provider-interface';
 import { matchJobWithClaude } from '@/lib/matcher/claude-matcher';
 import { buildFeedbackContext } from '@/lib/feedback/feedback-context';
 import type { UserPreferences } from '@/types/preferences';
+import type { ParsedCV } from '@/types/cv';
 import type { JobWithMatch } from '@/types/matching';
 
 export async function POST(req: NextRequest) {
   try {
+    const { preferences, cv: bodyCV } = (await req.json()) as { preferences: UserPreferences; cv?: ParsedCV };
+
     const session = await getSession();
-    if (!session?.cv) {
-      return NextResponse.json({ error: 'No active session or CV not uploaded' }, { status: 401 });
+    const cv = session?.cv ?? bodyCV;
+    if (!cv) {
+      return NextResponse.json({ error: 'No CV data found. Please upload your CV again.' }, { status: 401 });
     }
 
-    const { preferences } = (await req.json()) as { preferences: UserPreferences };
+    if (session) {
+      session.preferences = preferences;
+      await saveSession(session).catch(() => {});
+    }
 
-    session.preferences = preferences;
-    await saveSession(session);
-
-    const feedbackContext = await buildFeedbackContext(session.sessionId);
+    const feedbackContext = session ? await buildFeedbackContext(session.sessionId) : '';
 
     const searchQuery = [
-      ...(preferences.desiredJobTitles.length ? preferences.desiredJobTitles : [session.cv.workExperience[0]?.title ?? '']),
-      ...session.cv.skills.slice(0, 3).map((s) => s.name),
+      ...(preferences.desiredJobTitles.length ? preferences.desiredJobTitles : [cv.workExperience[0]?.title ?? '']),
+      ...cv.skills.slice(0, 3).map((s) => s.name),
     ]
       .filter(Boolean)
       .join(' ');
@@ -38,12 +42,12 @@ export async function POST(req: NextRequest) {
       maxResults: 12,
     });
 
-    const dismissedIds = new Set(session.dismissedJobIds ?? []);
+    const dismissedIds = new Set(session?.dismissedJobIds ?? []);
     const jobs = searchResult.jobs.filter((j) => !dismissedIds.has(j.id));
 
     const matchedJobs: JobWithMatch[] = await Promise.all(
       jobs.map(async (job) => {
-        const match = await matchJobWithClaude(job, session.cv!, feedbackContext);
+        const match = await matchJobWithClaude(job, cv, feedbackContext);
         return { ...job, match };
       })
     );

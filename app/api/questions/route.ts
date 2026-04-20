@@ -1,21 +1,26 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { generateQuestionsWithClaude } from '@/lib/questions/claude-question-gen';
 import { getSession, saveSession } from '@/lib/session/session-manager';
+import type { ParsedCV } from '@/types/cv';
 
-export async function GET() {
+export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
-    if (!session?.cv) {
-      return NextResponse.json({ error: 'No active session or CV not uploaded' }, { status: 401 });
+    const { cv } = (await req.json()) as { cv: ParsedCV };
+    if (!cv) {
+      return NextResponse.json({ error: 'CV data required' }, { status: 400 });
     }
 
-    if (session.questions) {
+    const session = await getSession();
+    if (session?.questions) {
       return NextResponse.json({ questions: session.questions });
     }
 
-    const questions = await generateQuestionsWithClaude(session.cv);
-    session.questions = questions;
-    await saveSession(session);
+    const questions = await generateQuestionsWithClaude(cv);
+
+    if (session) {
+      session.questions = questions;
+      await saveSession(session).catch(() => {});
+    }
 
     return NextResponse.json({ questions });
   } catch (e) {

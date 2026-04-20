@@ -1,19 +1,39 @@
-import { redirect } from 'next/navigation';
-import { getSession } from '@/lib/session/session-manager';
-import { generateQuestionsWithClaude } from '@/lib/questions/claude-question-gen';
-import { saveSession } from '@/lib/session/session-manager';
+'use client';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { OnboardingQuestion } from '@/types/preferences';
+import type { ParsedCV } from '@/types/cv';
 import { QuestionForm } from '@/components/questions/QuestionForm';
+import { Spinner } from '@/components/ui/Spinner';
+import { ErrorBanner } from '@/components/ui/ErrorBanner';
 
-export default async function QuestionsPage() {
-  const session = await getSession();
-  if (!session?.cv) redirect('/');
+export default function QuestionsPage() {
+  const router = useRouter();
+  const [questions, setQuestions] = useState<OnboardingQuestion[] | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  let questions = session.questions;
-  if (!questions) {
-    questions = await generateQuestionsWithClaude(session.cv);
-    session.questions = questions;
-    await saveSession(session);
-  }
+  useEffect(() => {
+    const cvRaw = sessionStorage.getItem('cv');
+    if (!cvRaw) { router.replace('/'); return; }
+
+    let cv: ParsedCV;
+    try { cv = JSON.parse(cvRaw); } catch { router.replace('/'); return; }
+
+    setFirstName(cv.name.split(' ')[0]);
+
+    fetch('/api/questions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cv }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) throw new Error(data.error);
+        setQuestions(data.questions as OnboardingQuestion[]);
+      })
+      .catch((e: Error) => setError(e.message));
+  }, [router]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -29,12 +49,23 @@ export default async function QuestionsPage() {
           <span>Jobs</span>
         </div>
         <h1 className="text-3xl font-bold text-gray-900">Tell us what you&apos;re looking for</h1>
-        <p className="text-gray-500 mt-2">
-          Hi {session.cv.name.split(' ')[0]}! Answer a few questions so we can find jobs that fit your goals.
-        </p>
+        {firstName && (
+          <p className="text-gray-500 mt-2">
+            Hi {firstName}! Answer a few questions so we can find jobs that fit your goals.
+          </p>
+        )}
       </div>
 
-      <QuestionForm questions={questions} />
+      {error && <ErrorBanner message={error} />}
+
+      {!questions && !error && (
+        <div className="flex flex-col items-center py-16 gap-4">
+          <Spinner size="lg" />
+          <p className="text-gray-500">Generating personalized questions…</p>
+        </div>
+      )}
+
+      {questions && <QuestionForm questions={questions} />}
     </div>
   );
 }
