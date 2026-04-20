@@ -1,14 +1,13 @@
 export const maxDuration = 30;
 
 import { NextRequest, NextResponse } from 'next/server';
-import { extractText } from '@/lib/cv-parser/pdf-extractor';
-import { structureCVWithClaude } from '@/lib/cv-parser/claude-structurer';
+import { extractTextFromDocx } from '@/lib/cv-parser/pdf-extractor';
+import { structureCVFromPDF, structureCVWithClaude } from '@/lib/cv-parser/claude-structurer';
 import { createEmptySession, createSessionCookie, saveSession } from '@/lib/session/session-manager';
 
-const ACCEPTED_TYPES = new Set([
-  'application/pdf',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-]);
+const PDF_TYPE = 'application/pdf';
+const DOCX_TYPE = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+const ACCEPTED_TYPES = new Set([PDF_TYPE, DOCX_TYPE]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,13 +27,17 @@ export async function POST(req: NextRequest) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const rawText = await extractText(buffer, file.type);
 
-    if (rawText.length < 50) {
-      return NextResponse.json({ error: 'Could not extract text from the file. Please try a different format.' }, { status: 422 });
+    let cv;
+    if (file.type === PDF_TYPE) {
+      cv = await structureCVFromPDF(buffer);
+    } else {
+      const rawText = await extractTextFromDocx(buffer);
+      if (rawText.length < 50) {
+        return NextResponse.json({ error: 'Could not extract text from the file. Please try a different format.' }, { status: 422 });
+      }
+      cv = await structureCVWithClaude(rawText);
     }
-
-    const cv = await structureCVWithClaude(rawText);
 
     const sessionId = crypto.randomUUID();
     const session = createEmptySession(sessionId);
