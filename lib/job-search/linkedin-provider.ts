@@ -42,7 +42,7 @@ export class LinkedInProvider implements JobSearchProvider {
       company: String(r.company ?? r.company_name ?? r.employer ?? ''),
       location: String(r.location ?? r.job_location ?? r.city ?? ''),
       remote: String(r.work_type ?? r.remote ?? '').toLowerCase().includes('remote'),
-      jobType: String(r.employment_type ?? r.job_type ?? 'full-time').toLowerCase() as Job['jobType'],
+      jobType: 'full-time',
       salary: undefined,
       description: String(r.description ?? r.job_description ?? r.details ?? ''),
       snippet: String(r.description ?? r.job_description ?? '').slice(0, 200),

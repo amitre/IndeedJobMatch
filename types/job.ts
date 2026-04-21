@@ -15,7 +15,7 @@ export interface Job {
   snippet?: string;
   url: string;
   postedAt?: string;
-  source: 'indeed' | 'rapidapi' | 'mock';
+  source: 'indeed' | 'rapidapi' | 'mock' | 'linkedin';
 }
 
 export interface JobSearchParams {
