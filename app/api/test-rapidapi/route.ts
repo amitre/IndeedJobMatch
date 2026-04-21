@@ -4,27 +4,23 @@ export async function GET() {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return NextResponse.json({ error: 'RAPIDAPI_KEY not set' });
 
-  // Try both providers with Israeli queries
-  const tests = [
-    { host: 'jsearch27.p.rapidapi.com', query: 'product manager Tel Aviv', country: 'il' },
-    { host: 'jsearch27.p.rapidapi.com', query: 'product manager Israel', country: 'il' },
-    { host: 'jobs-api14.p.rapidapi.com', query: 'product manager Tel Aviv', location: 'Tel Aviv, Israel' },
-  ];
+  const host = process.env.LINKEDIN_HOST ?? 'linkedin-job-search-api.p.rapidapi.com';
+  const url = `https://${host}/active-jb-7d?title_filter="Product Manager"&location_filter="Israel"&limit=5`;
 
-  const results = await Promise.all(tests.map(async ({ host, query, country, location }) => {
-    const url = new URL(`https://${host}/search`);
-    url.searchParams.set('query', query);
-    url.searchParams.set('num_pages', '1');
-    url.searchParams.set('page', '1');
-    if (country) url.searchParams.set('country', country);
-    if (location) url.searchParams.set('location', location);
+  const res = await fetch(url, {
+    headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': host },
+  });
 
-    const res = await fetch(url.toString(), {
-      headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': host },
-    });
-    const data = await res.json();
-    return { host, query, status: res.status, count: data.data?.length ?? 0, error: data.message };
-  }));
-
-  return NextResponse.json(results);
+  const data = await res.json();
+  const items = Array.isArray(data) ? data : (data.data ?? data.jobs ?? []);
+  return NextResponse.json({
+    status: res.status,
+    count: items.length,
+    sample: items.slice(0, 2).map((r: Record<string, unknown>) => ({
+      title: r.title ?? r.job_title,
+      company: r.company ?? r.company_name,
+      location: r.location ?? r.job_location,
+    })),
+    raw_keys: items[0] ? Object.keys(items[0]) : [],
+  });
 }

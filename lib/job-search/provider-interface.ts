@@ -8,6 +8,10 @@ export interface JobSearchProvider {
 export function getJobSearchProvider(): JobSearchProvider {
   const provider = process.env.JOB_PROVIDER ?? 'mock';
   switch (provider) {
+    case 'linkedin': {
+      const { LinkedInProvider } = require('./linkedin-provider');
+      return new LinkedInProvider();
+    }
     case 'indeed': {
       const { IndeedProvider } = require('./indeed-provider');
       return new IndeedProvider();
