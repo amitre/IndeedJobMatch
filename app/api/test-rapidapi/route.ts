@@ -4,23 +4,21 @@ export async function GET() {
   const apiKey = process.env.RAPIDAPI_KEY;
   if (!apiKey) return NextResponse.json({ error: 'RAPIDAPI_KEY not set' });
 
-  const host = process.env.LINKEDIN_HOST ?? 'linkedin-job-search-api.p.rapidapi.com';
-  const url = `https://${host}/active-jb-7d?title_filter="Product Manager"&location_filter="Israel"&limit=5`;
+  const host = 'jobs-api14.p.rapidapi.com';
+
+  // Try the search endpoint with Tel Aviv
+  const url = `https://${host}/list?query=Product%20Manager&location=Tel%20Aviv%2C%20Israel&distance=1.0&language=en_GB&remoteOnly=false&datePosted=month&employmentTypes=fulltime&index=0`;
 
   const res = await fetch(url, {
     headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': host },
   });
 
   const data = await res.json();
-  const items = Array.isArray(data) ? data : (data.data ?? data.jobs ?? []);
+  const items = Array.isArray(data) ? data : (data.jobs ?? data.data ?? data.results ?? []);
   return NextResponse.json({
     status: res.status,
     count: items.length,
-    sample: items.slice(0, 2).map((r: Record<string, unknown>) => ({
-      title: r.title ?? r.job_title,
-      company: r.company ?? r.company_name,
-      location: r.location ?? r.job_location,
-    })),
-    raw_keys: items[0] ? Object.keys(items[0]) : [],
+    top_keys: data ? Object.keys(data) : [],
+    sample: items.slice(0, 2),
   });
 }
