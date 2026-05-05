@@ -7,6 +7,7 @@ import { JobCard } from '@/components/jobs/JobCard';
 import { JobFilters } from '@/components/jobs/JobFilters';
 import { Spinner } from '@/components/ui/Spinner';
 import { ErrorBanner } from '@/components/ui/ErrorBanner';
+import { exportJobsToExcel } from '@/lib/export/excel-exporter';
 
 type SortKey = 'score' | 'date';
 
@@ -62,6 +63,13 @@ export default function JobsPage() {
     setDismissed((prev) => new Set([...prev, jobId]));
   };
 
+  const handleExport = useCallback(() => {
+    if (!data) return;
+    const visibleJobs = data.jobs.filter((j) => !dismissed.has(j.id));
+    const toExport = remoteOnly ? visibleJobs.filter((j) => j.remote) : visibleJobs;
+    exportJobsToExcel(toExport);
+  }, [data, dismissed, remoteOnly]);
+
   if (!data) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -110,6 +118,7 @@ export default function JobsPage() {
         provider={data.provider}
         onRefresh={refresh}
         refreshing={refreshing}
+        onExport={handleExport}
       />
 
       {jobs.length === 0 ? (

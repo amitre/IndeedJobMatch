@@ -12,9 +12,10 @@ interface Props {
   provider: string;
   onRefresh: () => void;
   refreshing: boolean;
+  onExport: () => void;
 }
 
-export function JobFilters({ sort, onSort, remoteOnly, onRemoteOnly, count, total, provider, onRefresh, refreshing }: Props) {
+export function JobFilters({ sort, onSort, remoteOnly, onRemoteOnly, count, total, provider, onRefresh, refreshing, onExport }: Props) {
   return (
     <div className="flex flex-wrap items-center gap-4 pb-4 border-b border-gray-200">
       <div className="flex-1">
@@ -55,6 +56,14 @@ export function JobFilters({ sort, onSort, remoteOnly, onRemoteOnly, count, tota
         className="text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
       >
         {refreshing ? 'Refreshing…' : '↻ Refine search'}
+      </button>
+
+      <button
+        onClick={onExport}
+        disabled={count === 0}
+        className="text-sm px-3 py-1 rounded-full bg-green-600 text-white hover:bg-green-700 disabled:opacity-40 transition-colors"
+      >
+        ↓ Export Excel
       </button>
     </div>
   );
