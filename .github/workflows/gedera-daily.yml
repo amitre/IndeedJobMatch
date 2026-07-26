@@ -5,6 +5,13 @@ on:
   schedule:
     - cron: '7 5 * * *'
   workflow_dispatch:
+  # Re-scan whenever the scraper itself changes, so a change to the
+  # extractors is verified against the live boards straight away.
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/gedera-scan.mjs'
+      - '.github/workflows/gedera-daily.yml'
 
 permissions:
   contents: write
