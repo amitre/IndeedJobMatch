@@ -67,7 +67,12 @@ function classify(status, type, body) {
 async function probe([name, url]) {
   const started = Date.now();
   try {
-    const res = await fetch(url, { headers: HEADERS, redirect: 'follow' });
+    // Without this a single unresponsive host stalls the whole probe.
+    const res = await fetch(url, {
+      headers: HEADERS,
+      redirect: 'follow',
+      signal: AbortSignal.timeout(15000),
+    });
     const body = await res.text();
     const type = res.headers.get('content-type')?.split(';')[0] ?? '?';
     const { verdict, note } = classify(res.status, type, body);
