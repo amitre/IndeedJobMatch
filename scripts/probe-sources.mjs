@@ -52,9 +52,15 @@ const BLOCK_MARKERS = [
 const clean = (s) => s.replace(/\s+/g, ' ').trim();
 
 function classify(status, type, body) {
-  const head = body.slice(0, 4000).toLowerCase();
-  const marker = BLOCK_MARKERS.find((m) => head.includes(m));
+  // Match the marker in the <title> only. A page that merely loads reCAPTCHA
+  // for its contact form is a normal page, and matching anywhere in the body
+  // wrongly condemned it.
+  const title = (body.match(/<title[^>]*>([\s\S]{0,200}?)<\/title>/i)?.[1] ?? '').toLowerCase();
+  const marker = BLOCK_MARKERS.find((m) => title.includes(m));
   if (marker) return { verdict: '🚫 blocked', note: `anti-bot: ${marker}` };
+  if (body.slice(0, 300).toLowerCase().includes('not in allowlist')) {
+    return { verdict: '🚫 blocked', note: 'egress allowlist' };
+  }
   if (status >= 400) return { verdict: '🚫 error', note: `HTTP ${status}` };
   if (body.length < 1000) return { verdict: '⚠️ thin', note: `only ${body.length}B` };
   // A usable board page mentions rooms or prices in Hebrew.
@@ -77,7 +83,7 @@ async function probe([name, url]) {
     const type = res.headers.get('content-type')?.split(';')[0] ?? '?';
     const { verdict, note } = classify(res.status, type, body);
     return { name, url, status: res.status, verdict, note, ms: Date.now() - started,
-             snippet: clean(body.slice(0, 160)) };
+             snippet: clean(body.slice(0, 160)), body };
   } catch (err) {
     return { name, url, status: '-', verdict: '🚫 failed', note: clean(String(err.message)).slice(0, 80),
              ms: Date.now() - started, snippet: '' };
@@ -94,6 +100,29 @@ for (const candidate of CANDIDATES) {
 }
 
 const usable = results.filter((r) => r.verdict.startsWith('✅'));
+
+/**
+ * For each usable board, report how its listings are carried: an embedded
+ * state blob is far more stable to read than scraped markup, so knowing which
+ * exists decides how the extractor should be written.
+ */
+for (const r of usable) {
+  console.error(`\n===== structure: ${r.name} =====`);
+  for (const [label, re] of [
+    ['__NEXT_DATA__', /<script[^>]+id="__NEXT_DATA__"[^>]*>([\s\S]{0,400})/],
+    ['__NUXT__', /window\.__NUXT__\s*=\s*([\s\S]{0,300})/],
+    ['INITIAL_STATE', /window\.__INITIAL_STATE__\s*=\s*([\s\S]{0,300})/],
+    ['JSON-LD', /<script[^>]+application\/ld\+json[^>]*>([\s\S]{0,400})/],
+  ]) {
+    const hit = r.body.match(re);
+    if (hit) console.error(`  ${label}: ${clean(hit[1]).slice(0, 260)}`);
+  }
+  // Markup immediately around a room count is what an HTML extractor keys on.
+  const contexts = [...r.body.matchAll(/.{260}חדרים/g)].slice(0, 3);
+  contexts.forEach((c, i) => console.error(`  ctx${i}: ${clean(c[0]).slice(0, 300)}`));
+  if (!contexts.length) console.error('  (no "חדרים" in markup - listings likely loaded via XHR)');
+}
+
 const table = [
   '## Source reachability probe',
   '',
