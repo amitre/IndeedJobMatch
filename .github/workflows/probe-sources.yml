@@ -1,0 +1,21 @@
+name: Probe listing sources
+
+# Diagnostic: reports which boards answer this runner, so extractors are only
+# written for sources that actually work. Runs when the probe itself changes.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/probe-sources.mjs'
+      - '.github/workflows/probe-sources.yml'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node scripts/probe-sources.mjs
