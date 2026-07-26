@@ -14,6 +14,31 @@ Each run publishes the digest three ways, so no setup is needed to read it:
 the **job summary** on the run page, the **`gedera-report` artifact**, and the
 **run log**. Email is sent only if the mail secrets below exist.
 
+## Delivery: Telegram (simplest)
+
+Two secrets, no 2FA or app password:
+
+1. Message [@BotFather](https://t.me/BotFather) on Telegram, send `/newbot`,
+   follow the prompts, and copy the token it gives you.
+2. Send your new bot any message (a bot cannot start a chat with you), then
+   open `https://api.telegram.org/bot<TOKEN>/getUpdates` and copy
+   `result[0].message.chat.id`.
+
+Add them under **Settings → Secrets and variables → Actions**:
+
+| Secret | Value |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | The token from BotFather |
+| `TELEGRAM_CHAT_ID` | Your chat id |
+
+Messages are sent only when there is something new, and are split across
+several messages rather than truncated if the digest exceeds Telegram's 4096
+character limit.
+
+**Delivery happens before listings are recorded as sent.** If Telegram fails,
+the state file is left unchanged and the job fails loudly, so the listings are
+still new on the next run rather than silently lost.
+
 ## Optional: email delivery
 
 Add these repository secrets under **Settings → Secrets and variables →

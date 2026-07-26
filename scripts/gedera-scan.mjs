@@ -184,6 +184,78 @@ function renderMarkdown({ listings, scanned, errors, generatedAt }) {
   return lines.join('\n');
 }
 
+/* ---------------------------------------------------------------- telegram */
+
+const TELEGRAM_LIMIT = 4096;
+
+/**
+ * Telegram messages are capped, so the digest is split on listing boundaries
+ * rather than truncated - a cut-off listing is worse than a second message.
+ * Uses HTML parse mode; MarkdownV2 would require escaping punctuation that
+ * appears throughout Hebrew addresses.
+ */
+function renderTelegram({ listings, scanned, errors, generatedAt }) {
+  const header =
+    `🏠 <b>נכסים חדשים בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים</b>\n` +
+    `${listings.length} חדשים · ${scanned} נסרקו · ${escapeHtml(generatedAt)}` +
+    (errors.length
+      ? `\n⚠️ מקורות שנכשלו: ${escapeHtml(errors.map((e) => e.name).join(', '))}`
+      : '');
+
+  const blocks = listings.map((l) => {
+    const facts = [
+      `${l.rooms} חדרים`,
+      l.sqm ? `${l.sqm} מ"ר` : null,
+      l.floor ? `קומה ${l.floor}` : null,
+      shekels(l.price),
+      l.source,
+    ].filter(Boolean);
+    return (
+      `<a href="${escapeHtml(l.url)}">${escapeHtml(describe(l))}</a>\n` +
+      `${escapeHtml(facts.join(' · '))}`
+    );
+  });
+
+  const messages = [];
+  let current = header;
+  for (const block of blocks) {
+    if (`${current}\n\n${block}`.length > TELEGRAM_LIMIT) {
+      messages.push(current);
+      current = block;
+    } else {
+      current = `${current}\n\n${block}`;
+    }
+  }
+  messages.push(current);
+  return messages;
+}
+
+/** Returns false when Telegram is not configured, so the caller can tell the
+ *  difference between "not set up" and "failed to deliver". */
+async function sendTelegram(messages) {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!token || !chatId) return false;
+
+  for (const text of messages) {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: chatId,
+        text,
+        parse_mode: 'HTML',
+        disable_web_page_preview: true,
+      }),
+    });
+    if (!res.ok) {
+      // The body names the cause (bad token, wrong chat id, unstarted chat).
+      throw new Error(`Telegram ${res.status}: ${(await res.text()).slice(0, 200)}`);
+    }
+  }
+  return true;
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(
     /[&<>"']/g,
@@ -288,6 +360,27 @@ async function main() {
   console.error(`\n${renderMarkdown(view)}\n`);
 
   await writeFile(REPORT_FILE, renderHtml(view), 'utf8');
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await writeFile(process.env.GITHUB_STEP_SUMMARY, `${renderMarkdown(view)}\n`, { flag: 'a' });
+  }
+
+  // Deliver before recording anything as sent. Marking these seen after a
+  // failed send would drop them permanently - they would not be new tomorrow.
+  let delivered = true;
+  if (newCount) {
+    try {
+      const sent = await sendTelegram(renderTelegram(view));
+      console.error(sent ? `telegram: sent ${newCount} listing(s)` : 'telegram: not configured');
+    } catch (err) {
+      delivered = false;
+      console.error(`telegram: FAILED - ${err.message}`);
+    }
+  }
+
+  if (!delivered) {
+    console.error('state left unchanged; these listings stay new for the next run');
+    return 1;
+  }
 
   const now = new Date().toISOString();
   await writeFile(
@@ -295,9 +388,6 @@ async function main() {
     `${JSON.stringify({ updatedAt: now, seen: mergeSeen(seen, listings, now) }, null, 2)}\n`,
     'utf8',
   );
-  if (process.env.GITHUB_STEP_SUMMARY) {
-    await writeFile(process.env.GITHUB_STEP_SUMMARY, `${renderMarkdown(view)}\n`, { flag: 'a' });
-  }
   if (process.env.GITHUB_OUTPUT) {
     await writeFile(process.env.GITHUB_OUTPUT, `total=${listings.length}\nnew=${newCount}\n`, {
       flag: 'a',

@@ -37,6 +37,9 @@ jobs:
 
       - name: Scan listing boards
         id: scan
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         # Exit 20 means "no matching listings", which is a valid result, not a failure.
         run: node scripts/gedera-scan.mjs || [ $? -eq 20 ]
 
