@@ -65,13 +65,28 @@ async function scrollThrough(page) {
   }
 }
 
-async function scanBoard(browser, board) {
+/**
+ * One slow response should not cost a day's digest, and these boards are
+ * routinely slow, so a board gets a second attempt with a longer budget
+ * before it is reported as failed.
+ */
+async function scanBoard(browser, board, attempt = 1) {
+  try {
+    return await scanBoardOnce(browser, board, attempt === 1 ? 45000 : 75000);
+  } catch (err) {
+    if (attempt >= 2) throw err;
+    console.error(`${board.name}: attempt ${attempt} failed (${err.message.split('\n')[0]}), retrying`);
+    return scanBoard(browser, board, attempt + 1);
+  }
+}
+
+async function scanBoardOnce(browser, board, timeout) {
   const page = await browser.newPage({
     locale: 'he-IL',
     viewport: { width: 1400, height: 1000 },
   });
   try {
-    await page.goto(board.url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    await page.goto(board.url, { waitUntil: 'domcontentloaded', timeout });
     await page.waitForLoadState('networkidle', { timeout: 25000 }).catch(() => {});
     await page.waitForTimeout(2500);
     await scrollThrough(page);
