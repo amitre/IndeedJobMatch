@@ -33,20 +33,35 @@ const BROWSER_HEADERS = {
 const shekels = (n) =>
   typeof n === 'number' && n > 0 ? `₪${n.toLocaleString('en-US')}` : '—';
 
-async function getJson(url, extraHeaders = {}) {
-  const res = await fetch(url, {
-    headers: { ...BROWSER_HEADERS, Accept: 'application/json', ...extraHeaders },
-  });
+/** First bytes of a response, for diagnosing a block page in the run log. */
+const snippet = (body) => body.replace(/\s+/g, ' ').trim().slice(0, 140);
+
+/**
+ * Fetches and logs what actually came back. These boards answer bot traffic
+ * with a 200 and an HTML interstitial, so the status code alone hides the
+ * failure - the content type and first bytes are what identify it.
+ */
+async function fetchLogged(url, extraHeaders = {}) {
+  const res = await fetch(url, { headers: { ...BROWSER_HEADERS, ...extraHeaders } });
+  const body = await res.text();
+  const type = res.headers.get('content-type')?.split(';')[0] ?? 'unknown';
+  console.error(`  GET ${url}\n    -> ${res.status} ${type} ${body.length}B :: ${snippet(body)}`);
   if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  return res.json();
+  return { body, type };
+}
+
+async function getJson(url, extraHeaders = {}) {
+  const { body, type } = await fetchLogged(url, { Accept: 'application/json', ...extraHeaders });
+  try {
+    return JSON.parse(body);
+  } catch {
+    throw new Error(`expected JSON, got ${type} (${snippet(body)})`);
+  }
 }
 
 async function getText(url) {
-  const res = await fetch(url, {
-    headers: { ...BROWSER_HEADERS, Accept: 'text/html' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  return res.text();
+  const { body } = await fetchLogged(url, { Accept: 'text/html' });
+  return body;
 }
 
 /**
@@ -190,18 +205,24 @@ async function scanYad2() {
  */
 async function scanHomeless() {
   // inumber1=313 -> Gedera & surroundings; inumber4 9 = 5 rooms, 11 = 6 rooms.
-  const pages = await Promise.all(
+  const settled = await Promise.allSettled(
     ['9', '11'].map((rooms) =>
-      getText(`https://www.homeless.co.il/sale/inumber1=313$$inumber4=${rooms}`).catch(() => ''),
+      getText(`https://www.homeless.co.il/sale/inumber1=313$$inumber4=${rooms}`),
     ),
   );
+  const pages = settled.filter((r) => r.status === 'fulfilled').map((r) => r.value);
+  // Swallowing these would report an outage as "0 listings", hiding the cause.
+  if (!pages.length) {
+    throw new Error(settled.map((r) => r.reason?.message ?? r.reason).join('; '));
+  }
 
   const listings = [];
+  let rowsSeen = 0;
   for (const html of pages) {
-    if (!html) continue;
     // Each result row links to /nadlan/<id> and carries price + rooms nearby.
     const rowRe = /<a[^>]+href="(\/(?:nadlan|sale)\/[^"]+)"[^>]*>([\s\S]{0,600}?)<\/a>/g;
     for (const [, href, chunk] of html.matchAll(rowRe)) {
+      rowsSeen++;
       const text = chunk.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       const rooms = toNumber(text.match(/(\d+(?:\.\d)?)\s*חדרים/)?.[1]);
       const price = toNumber(text.match(/([\d,]{6,})\s*(?:₪|ש"ח)/)?.[1]);
@@ -218,6 +239,8 @@ async function scanHomeless() {
       });
     }
   }
+  // Rows matched but none kept means the row markup moved, not an empty board.
+  console.error(`  Homeless: ${rowsSeen} anchor rows scanned, ${listings.length} kept`);
   return listings;
 }
 
