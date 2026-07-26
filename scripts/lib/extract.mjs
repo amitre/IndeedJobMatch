@@ -83,6 +83,13 @@ export function extractListings({ minRooms, maxRooms, requireCity }) {
     seenHref.add(absolute);
 
     const priceMatch = cardText.match(PRICE);
+
+    // A real listing either quotes a price or links to a numbered ad page.
+    // Navigation and hero links satisfy neither, which is how a board's own
+    // "/search/homes/buy" link was being reported as a property.
+    const hasAdId = /\d{4,}/.test(new URL(absolute).search + new URL(absolute).pathname);
+    if (!priceMatch && !hasAdId) continue;
+
     listings.push({
       rooms,
       price: num(priceMatch?.[1] ?? priceMatch?.[2]),

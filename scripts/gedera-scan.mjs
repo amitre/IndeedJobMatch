@@ -239,6 +239,9 @@ async function main() {
     return listings.length ? 0 : 20;
   }
 
+  // Also to the log, so a run is fully readable from its own output.
+  console.error(`\n${renderMarkdown(view)}\n`);
+
   await writeFile(REPORT_FILE, renderHtml(view), 'utf8');
   await writeFile(
     STATE_FILE,
