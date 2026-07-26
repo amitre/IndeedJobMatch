@@ -1,0 +1,25 @@
+name: Probe rendered listings
+
+# Diagnostic: these boards return no listings over plain HTTP, so this reports
+# how their listings are structured once JavaScript has run.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/render-probe.mjs'
+      - '.github/workflows/render-probe.yml'
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: node scripts/render-probe.mjs
