@@ -35,6 +35,12 @@ treats that as a normal outcome, not a failure.
 
 ## How it works
 
+Every row links to the listing's own page. A listing whose URL cannot be
+resolved is dropped rather than shown as a dead-end row, and the number
+dropped is reported in the digest — so a silent extractor regression shows up
+instead of quietly shrinking the results. Links are validated and absolutised,
+so a malformed or non-http value can never render as a broken link.
+
 Both boards are queried in parallel and failures are isolated, so a broken
 source degrades the digest instead of killing the run; the failing source is
 named in the email. `.gedera-state.json` records the ids sent previously, which

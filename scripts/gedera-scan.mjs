@@ -101,6 +101,21 @@ function toText(value) {
   return undefined;
 }
 
+/**
+ * Absolutises a link and rejects anything that is not a real http(s) target,
+ * so a malformed value can never reach the digest as a dead link.
+ */
+function toUrl(value, base) {
+  const raw = toText(value);
+  if (!raw) return undefined;
+  try {
+    const url = new URL(raw, base);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** "2,950,000 ₪" / "₪2950000" / 2950000 -> 2950000 */
 function toNumber(value) {
   if (typeof value === 'number') return Number.isFinite(value) ? value : undefined;
@@ -133,10 +148,17 @@ async function scanYad2() {
 
   const listings = [];
   for (const raw of findListingObjects(json)) {
-    const token = pick(raw, ['token', 'orderId', 'id', 'adNumber']);
     const rooms = toNumber(pick(raw, ['rooms', 'roomsCount', 'rooms_count']));
     const price = toNumber(pick(raw, ['price', 'priceValue']));
     if (rooms == null) continue;
+
+    // Prefer a link the payload states outright; otherwise build the item URL
+    // from the ad token. `token` is the canonical one - `id` is a fallback
+    // because it is sometimes an internal key that does not resolve.
+    const token = toText(pick(raw, ['token', 'linkToken', 'orderId', 'adNumber', 'id']));
+    const url =
+      toUrl(pick(raw, ['link', 'url', 'href', 'itemUrl']), 'https://www.yad2.co.il') ??
+      (token ? `https://www.yad2.co.il/realestate/item/${encodeURIComponent(token)}` : undefined);
 
     // Newer payloads group location under `address`; older ones inline it.
     const addr = raw.address && typeof raw.address === 'object' ? raw.address : {};
@@ -146,7 +168,7 @@ async function scanYad2() {
 
     listings.push({
       source: 'Yad2',
-      id: token ? `yad2:${toText(token)}` : undefined,
+      id: token ? `yad2:${token}` : undefined,
       rooms,
       price,
       address: [street, houseNumber].filter(Boolean).join(' ').trim() || undefined,
@@ -155,7 +177,7 @@ async function scanYad2() {
       sqm: toNumber(pick(raw, ['square_meters', 'squareMeters', 'squareMeter', 'size', 'builtArea'])),
       floor: toText(pick(raw, ['floor', 'onFloor', 'floorNumber'])),
       type: toText(pick(raw, ['propertyTypeText', 'property_type', 'categoryText', 'property'])),
-      url: token ? `https://www.yad2.co.il/realestate/item/${toText(token)}` : undefined,
+      url,
       image: toText(pick(raw, ['coverImage', 'cover_image', 'image', 'mainImage'])),
     });
   }
@@ -192,7 +214,7 @@ async function scanHomeless() {
         price,
         address: text.slice(0, 80) || undefined,
         sqm: toNumber(text.match(/(\d{2,4})\s*מ"ר/)?.[1]),
-        url: new URL(href, 'https://www.homeless.co.il').toString(),
+        url: toUrl(href, 'https://www.homeless.co.il'),
       });
     }
   }
@@ -244,12 +266,12 @@ function renderHtml({ listings, errors, generatedAt }) {
       <tr${l.isNew ? ' style="background:#f0fdf4"' : ''}>
         <td style="padding:12px;border-bottom:1px solid #e5e7eb">
           ${l.isNew ? '<span style="background:#16a34a;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px">חדש</span> ' : ''}
-          <strong>${escapeHtml(title)}</strong><br>
+          <a href="${escapeHtml(l.url)}" style="color:#1d4ed8;text-decoration:none"><strong>${escapeHtml(title)}</strong></a><br>
           <span style="color:#6b7280;font-size:13px">${escapeHtml(facts.join(' | '))}</span>
         </td>
         <td style="padding:12px;border-bottom:1px solid #e5e7eb;white-space:nowrap"><strong>${shekels(l.price)}</strong></td>
         <td style="padding:12px;border-bottom:1px solid #e5e7eb">
-          ${l.url ? `<a href="${escapeHtml(l.url)}">צפייה</a>` : '—'}
+          <a href="${escapeHtml(l.url)}">למודעה ↗</a>
         </td>
       </tr>`;
     })
@@ -300,10 +322,12 @@ function renderMarkdown({ listings, errors, generatedAt }) {
   lines.push('| | נכס | חדרים | מ"ר | קומה | מחיר | מקור |', '| --- | --- | --- | --- | --- | --- | --- |');
   for (const l of listings) {
     const name = [l.type, l.address, l.neighborhood].filter(Boolean).join(' · ') || 'נכס';
+    // Pipes in a scraped title would break out of the table cell.
+    const label = name.replace(/\|/g, '/');
     lines.push(
-      `| ${l.isNew ? '🆕' : ''} | ${l.url ? `[${name}](${l.url})` : name} | ${l.rooms} | ${
-        l.sqm ?? '—'
-      } | ${l.floor ?? '—'} | ${shekels(l.price)} | ${l.source} |`,
+      `| ${l.isNew ? '🆕' : ''} | [${label}](${l.url}) | ${l.rooms} | ${l.sqm ?? '—'} | ${
+        l.floor ?? '—'
+      } | ${shekels(l.price)} | ${l.source} |`,
     );
   }
   return lines.join('\n');
@@ -336,9 +360,21 @@ async function main() {
     }
   });
 
-  const listings = dedupe(collected)
-    .filter((l) => l.rooms >= MIN_ROOMS && l.rooms <= MAX_ROOMS)
+  const inRange = dedupe(collected).filter(
+    (l) => l.rooms >= MIN_ROOMS && l.rooms <= MAX_ROOMS,
+  );
+
+  // Every entry must link to its own listing page, so anything we could not
+  // resolve a URL for is dropped rather than shown as a dead-end row.
+  const listings = inRange
+    .filter((l) => l.url)
     .sort((a, b) => (a.price ?? Infinity) - (b.price ?? Infinity));
+
+  const unlinked = inRange.length - listings.length;
+  if (unlinked > 0) {
+    console.error(`dropped ${unlinked} listing(s) with no resolvable link`);
+    errors.push({ name: 'ללא קישור', message: `${unlinked} מודעות הושמטו` });
+  }
 
   const seen = await loadSeen();
   for (const listing of listings) listing.isNew = !seen.has(listing.id);
