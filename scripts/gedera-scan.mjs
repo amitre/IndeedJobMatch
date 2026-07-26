@@ -113,12 +113,39 @@ function dedupe(listings) {
   return [...byUrl.values()];
 }
 
+/** Listings already reported, as id -> { first, last } ISO timestamps. */
 async function loadSeen() {
   try {
-    return new Set(JSON.parse(await readFile(STATE_FILE, 'utf8')).seen ?? []);
+    const parsed = JSON.parse(await readFile(STATE_FILE, 'utf8'));
+    if (!parsed.seen) return {};
+    // Older state was a bare array of ids. Converting rather than discarding
+    // it matters: treating it as empty would resend every listing once.
+    if (Array.isArray(parsed.seen)) {
+      const now = new Date().toISOString();
+      return Object.fromEntries(parsed.seen.map((id) => [id, { first: now, last: now }]));
+    }
+    return parsed.seen;
   } catch {
-    return new Set();
+    return {};
   }
+}
+
+/**
+ * Carries forward everything previously reported, not just what this scan
+ * returned. Keeping only the current scan would re-report a listing that
+ * briefly dropped off a board and came back. Entries unseen for six months
+ * are dropped so the file cannot grow without bound.
+ */
+function mergeSeen(previous, listings, now) {
+  const merged = { ...previous };
+  for (const listing of listings) {
+    merged[listing.id] = { first: previous[listing.id]?.first ?? now, last: now };
+  }
+  const cutoff = Date.now() - 180 * 24 * 60 * 60 * 1000;
+  for (const [id, entry] of Object.entries(merged)) {
+    if (Date.parse(entry.last) < cutoff) delete merged[id];
+  }
+  return merged;
 }
 
 /* --------------------------------------------------------------- rendering */
@@ -129,29 +156,29 @@ function describe(l) {
   return title || l.text?.slice(0, 90) || `${l.rooms} חדרים`;
 }
 
-function renderMarkdown({ listings, errors, generatedAt }) {
+function renderMarkdown({ listings, scanned, errors, generatedAt }) {
   const lines = [
-    `## דירות ובתים למכירה בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים`,
+    `## נכסים חדשים בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים`,
     '',
-    `${listings.length} נכסים · ${listings.filter((l) => l.isNew).length} חדשים · ${generatedAt}`,
+    `${listings.length} חדשים · ${scanned} נסרקו · ${generatedAt}`,
     '',
   ];
   if (errors.length) {
     lines.push(`> מקורות שנכשלו: ${errors.map((e) => `${e.name} (${e.message})`).join(', ')}`, '');
   }
   if (!listings.length) {
-    lines.push('_לא נמצאו נכסים תואמים._');
+    lines.push('_אין נכסים חדשים מאז הסריקה הקודמת._');
     return lines.join('\n');
   }
   lines.push(
-    '| | נכס | חדרים | מ"ר | קומה | מחיר | מקור |',
-    '| --- | --- | --- | --- | --- | --- | --- |',
+    '| נכס | חדרים | מ"ר | קומה | מחיר | מקור |',
+    '| --- | --- | --- | --- | --- | --- |',
   );
   for (const l of listings) {
     lines.push(
-      `| ${l.isNew ? '🆕' : ''} | [${describe(l).replace(/\|/g, '/')}](${l.url}) | ${l.rooms} | ${
-        l.sqm ?? '—'
-      } | ${l.floor ?? '—'} | ${shekels(l.price)} | ${l.source} |`,
+      `| [${describe(l).replace(/\|/g, '/')}](${l.url}) | ${l.rooms} | ${l.sqm ?? '—'} | ${
+        l.floor ?? '—'
+      } | ${shekels(l.price)} | ${l.source} |`,
     );
   }
   return lines.join('\n');
@@ -164,7 +191,7 @@ function escapeHtml(value) {
   );
 }
 
-function renderHtml({ listings, errors, generatedAt }) {
+function renderHtml({ listings, scanned, errors, generatedAt }) {
   const rows = listings
     .map((l) => {
       const facts = [
@@ -174,9 +201,8 @@ function renderHtml({ listings, errors, generatedAt }) {
         l.source,
       ].filter(Boolean);
       return `
-      <tr${l.isNew ? ' style="background:#f0fdf4"' : ''}>
+      <tr>
         <td style="padding:12px;border-bottom:1px solid #e5e7eb">
-          ${l.isNew ? '<span style="background:#16a34a;color:#fff;border-radius:4px;padding:1px 6px;font-size:11px">חדש</span> ' : ''}
           <a href="${escapeHtml(l.url)}" style="color:#1d4ed8;text-decoration:none"><strong>${escapeHtml(describe(l))}</strong></a><br>
           <span style="color:#6b7280;font-size:13px">${escapeHtml(facts.join(' | '))}</span>
         </td>
@@ -190,9 +216,9 @@ function renderHtml({ listings, errors, generatedAt }) {
 <html dir="rtl" lang="he"><meta charset="utf-8">
 <body style="font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:#f9fafb;padding:16px">
   <div style="max-width:760px;margin:0 auto;background:#fff;border-radius:10px;padding:20px">
-    <h2 style="margin:0 0 4px">דירות ובתים למכירה בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים</h2>
+    <h2 style="margin:0 0 4px">נכסים חדשים בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים</h2>
     <p style="color:#6b7280;margin:0 0 16px">
-      ${listings.length} נכסים · ${listings.filter((l) => l.isNew).length} חדשים מאז הסריקה הקודמת · ${escapeHtml(generatedAt)}
+      ${listings.length} נכסים חדשים · ${scanned} נסרקו · ${escapeHtml(generatedAt)}
     </p>
     ${
       errors.length
@@ -204,7 +230,7 @@ function renderHtml({ listings, errors, generatedAt }) {
     ${
       listings.length
         ? `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}</table>`
-        : '<p>לא נמצאו נכסים תואמים בסריקה הנוכחית.</p>'
+        : '<p>אין נכסים חדשים מאז הסריקה הקודמת.</p>'
     }
   </div>
 </body></html>`;
@@ -239,15 +265,19 @@ async function main() {
   );
 
   const seen = await loadSeen();
-  for (const listing of listings) listing.isNew = !seen.has(listing.id);
+  for (const listing of listings) listing.isNew = !(listing.id in seen);
 
+  // Only listings not reported before - the digest is a feed of what is new,
+  // not a standing inventory.
+  const fresh = listings.filter((l) => l.isNew);
   const view = {
-    listings,
+    listings: fresh,
+    scanned: listings.length,
     errors,
     generatedAt: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }),
   };
-  const newCount = listings.filter((l) => l.isNew).length;
-  console.error(`total: ${listings.length} matching, ${newCount} new`);
+  console.error(`total: ${listings.length} matching, ${fresh.length} new`);
+  const newCount = fresh.length;
 
   if (dryRun) {
     console.log(process.argv.includes('--md') ? renderMarkdown(view) : renderHtml(view));
@@ -258,9 +288,11 @@ async function main() {
   console.error(`\n${renderMarkdown(view)}\n`);
 
   await writeFile(REPORT_FILE, renderHtml(view), 'utf8');
+
+  const now = new Date().toISOString();
   await writeFile(
     STATE_FILE,
-    `${JSON.stringify({ updatedAt: new Date().toISOString(), seen: listings.map((l) => l.id) }, null, 2)}\n`,
+    `${JSON.stringify({ updatedAt: now, seen: mergeSeen(seen, listings, now) }, null, 2)}\n`,
     'utf8',
   );
   if (process.env.GITHUB_STEP_SUMMARY) {

@@ -50,7 +50,7 @@ jobs:
       # artifact above still carry the digest. The secrets context is not
       # available to a step-level `if`, so it is bridged through env.
       - name: Email the digest
-        if: ${{ env.MAIL_USERNAME != '' }}
+        if: ${{ env.MAIL_USERNAME != '' && steps.scan.outputs.new != '0' }}
         env:
           MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
         uses: dawidd6/action-send-mail@v3
@@ -63,8 +63,7 @@ jobs:
           from: Gedera Scanner <${{ secrets.MAIL_USERNAME }}>
           to: ${{ secrets.MAIL_TO }}
           subject: >-
-            גדרה 5-6 חדרים — ${{ steps.scan.outputs.new || 0 }} חדשים
-            מתוך ${{ steps.scan.outputs.total || 0 }}
+            גדרה 5-6 חדרים — ${{ steps.scan.outputs.new || 0 }} נכסים חדשים
           html_body: file://gedera-report.html
           convert_markdown: false
 
