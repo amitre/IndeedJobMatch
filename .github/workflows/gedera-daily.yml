@@ -59,7 +59,10 @@ jobs:
           html_body: file://gedera-report.html
           convert_markdown: false
 
+      # Only when something was found - otherwise a blocked scan would commit
+      # a fresh timestamp to main every single day for no result.
       - name: Remember which listings were already sent
+        if: ${{ steps.scan.outputs.total != '0' }}
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
