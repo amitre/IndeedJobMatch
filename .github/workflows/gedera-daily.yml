@@ -1,0 +1,49 @@
+name: Gedera daily listings
+
+# 05:07 UTC = 08:07 Israel time in summer (IDT), 07:07 in winter (IST).
+on:
+  schedule:
+    - cron: '7 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Scan listing boards
+        id: scan
+        # Exit 20 means "no matching listings", which is a valid result, not a failure.
+        run: node scripts/gedera-scan.mjs || [ $? -eq 20 ]
+
+      - name: Email the digest
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          secure: true
+          username: ${{ secrets.MAIL_USERNAME }}
+          password: ${{ secrets.MAIL_PASSWORD }}
+          from: Gedera Scanner <${{ secrets.MAIL_USERNAME }}>
+          to: ${{ secrets.MAIL_TO }}
+          subject: >-
+            גדרה 5-6 חדרים — ${{ steps.scan.outputs.new || 0 }} חדשים
+            מתוך ${{ steps.scan.outputs.total || 0 }}
+          html_body: file://gedera-report.html
+          convert_markdown: false
+
+      - name: Remember which listings were already sent
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .gedera-state.json
+          git diff --staged --quiet || git commit -m "Update Gedera scan state [skip ci]"
+          git push
