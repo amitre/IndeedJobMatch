@@ -25,7 +25,8 @@ Run workflow**) to confirm the mail arrives before relying on the schedule.
 ## Running locally
 
 ```bash
-node scripts/gedera-scan.mjs --dry   # print the digest, leave state untouched
+node scripts/gedera-scan.mjs --dry        # print the HTML digest, leave state untouched
+node scripts/gedera-scan.mjs --dry --md   # same, as a markdown table
 node scripts/gedera-scan.mjs         # write gedera-report.html + .gedera-state.json
 ```
 

@@ -282,6 +282,33 @@ function renderHtml({ listings, errors, generatedAt }) {
 </body></html>`;
 }
 
+/** Markdown table for the Actions job summary, so a run is readable without email. */
+function renderMarkdown({ listings, errors, generatedAt }) {
+  const lines = [
+    `## דירות ובתים למכירה בגדרה — ${MIN_ROOMS}-${MAX_ROOMS} חדרים`,
+    '',
+    `${listings.length} נכסים · ${listings.filter((l) => l.isNew).length} חדשים · ${generatedAt}`,
+    '',
+  ];
+  if (errors.length) {
+    lines.push(`> מקורות שנכשלו: ${errors.map((e) => `${e.name} (${e.message})`).join(', ')}`, '');
+  }
+  if (!listings.length) {
+    lines.push('_לא נמצאו נכסים תואמים._');
+    return lines.join('\n');
+  }
+  lines.push('| | נכס | חדרים | מ"ר | קומה | מחיר | מקור |', '| --- | --- | --- | --- | --- | --- | --- |');
+  for (const l of listings) {
+    const name = [l.type, l.address, l.neighborhood].filter(Boolean).join(' · ') || 'נכס';
+    lines.push(
+      `| ${l.isNew ? '🆕' : ''} | ${l.url ? `[${name}](${l.url})` : name} | ${l.rooms} | ${
+        l.sqm ?? '—'
+      } | ${l.floor ?? '—'} | ${shekels(l.price)} | ${l.source} |`,
+    );
+  }
+  return lines.join('\n');
+}
+
 function escapeHtml(value) {
   return String(value ?? '').replace(
     /[&<>"']/g,
@@ -316,21 +343,27 @@ async function main() {
   const seen = await loadSeen();
   for (const listing of listings) listing.isNew = !seen.has(listing.id);
 
-  const html = renderHtml({
+  const view = {
     listings,
     errors,
     generatedAt: new Date().toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }),
-  });
+  };
+  const html = renderHtml(view);
+  const markdown = renderMarkdown(view);
 
   const newCount = listings.filter((l) => l.isNew).length;
   console.error(`total: ${listings.length} matching, ${newCount} new`);
 
   if (dryRun) {
-    console.log(html);
+    console.log(process.argv.includes('--md') ? markdown : html);
     return listings.length ? 0 : 20;
   }
 
   await writeFile(REPORT_FILE, html, 'utf8');
+  // Renders in the Actions run page, so the digest is readable without email.
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    await writeFile(process.env.GITHUB_STEP_SUMMARY, `${markdown}\n`, { flag: 'a' });
+  }
   await writeFile(
     STATE_FILE,
     `${JSON.stringify({ updatedAt: new Date().toISOString(), seen: listings.map((l) => l.id) }, null, 2)}\n`,

@@ -24,7 +24,19 @@ jobs:
         # Exit 20 means "no matching listings", which is a valid result, not a failure.
         run: node scripts/gedera-scan.mjs || [ $? -eq 20 ]
 
+      - name: Publish the digest as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: gedera-report
+          path: gedera-report.html
+
+      # Skipped when no mail secrets are configured; the job summary and the
+      # artifact above still carry the digest. The secrets context is not
+      # available to a step-level `if`, so it is bridged through env.
       - name: Email the digest
+        if: ${{ env.MAIL_USERNAME != '' }}
+        env:
+          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
         uses: dawidd6/action-send-mail@v3
         with:
           server_address: smtp.gmail.com
