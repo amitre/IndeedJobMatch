@@ -1,15 +1,24 @@
-# Gedera daily listings scan
+# Gedera daily listings
 
-Scans Israeli real-estate boards each morning for **5–6 room apartments and
-houses for sale in Gedera** and emails the results.
+Aggregates **5–6 room apartments and houses for sale in Gedera** from several
+listing boards into one daily digest, with a direct link to every property.
 
-- `gedera-scan.mjs` — the scraper and HTML digest renderer (zero dependencies).
-- `../.github/workflows/gedera-daily.yml` — runs it daily and sends the email.
+- `gedera-scan.mjs` — drives the boards and renders the digest.
+- `lib/extract.mjs` — locates listings in a rendered page.
+- `probe-sources.mjs` / `render-probe.mjs` — diagnostics for adding a board.
+- `../.github/workflows/gedera-daily.yml` — runs it daily at 08:07 Israel time.
 
-## Setup
+## Reading a run
 
-The workflow sends mail over Gmail SMTP. Add three repository secrets under
-**Settings → Secrets and variables → Actions**:
+Each run publishes the digest three ways, so no setup is needed to read it:
+the **job summary** on the run page, the **`gedera-report` artifact**, and the
+**run log**. Email is sent only if the mail secrets below exist.
+
+## Optional: email delivery
+
+Add these repository secrets under **Settings → Secrets and variables →
+Actions**. Without them the email step is skipped and everything else still
+works.
 
 | Secret | Value |
 | --- | --- |
@@ -17,44 +26,54 @@ The workflow sends mail over Gmail SMTP. Add three repository secrets under
 | `MAIL_PASSWORD` | A Gmail [app password](https://myaccount.google.com/apppasswords) — *not* the account password |
 | `MAIL_TO` | Where the digest is delivered |
 
-App passwords require 2-Step Verification to be enabled on the sending account.
-
-Then trigger the workflow once by hand (**Actions → Gedera daily listings →
-Run workflow**) to confirm the mail arrives before relying on the schedule.
-
 ## Running locally
 
 ```bash
-node scripts/gedera-scan.mjs --dry        # print the HTML digest, leave state untouched
-node scripts/gedera-scan.mjs --dry --md   # same, as a markdown table
-node scripts/gedera-scan.mjs         # write gedera-report.html + .gedera-state.json
+npm ci && npx playwright install chromium
+node scripts/gedera-scan.mjs --dry --md   # print the digest as a table
+node scripts/gedera-scan.mjs              # write report + state
 ```
 
-Exit code `20` means the scan succeeded but matched no listings — the workflow
-treats that as a normal outcome, not a failure.
+Exit code `20` means the scan succeeded but matched no listings.
 
-## How it works
+## Sources
 
-Every row links to the listing's own page. A listing whose URL cannot be
-resolved is dropped rather than shown as a dead-end row, and the number
-dropped is reported in the digest — so a silent extractor regression shows up
-instead of quietly shrinking the results. Links are validated and absolutised,
-so a malformed or non-http value can never render as a broken link.
+Every board renders its listings client-side, so pages are driven in Chromium
+rather than fetched — plain HTTP returns no listings from any of them.
 
-Both boards are queried in parallel and failures are isolated, so a broken
-source degrades the digest instead of killing the run; the failing source is
-named in the email. `.gedera-state.json` records the ids sent previously, which
-is what lets the digest tag genuinely new listings with a *חדש* badge. The
-workflow commits that file back to the branch after each run.
+| Board | Status |
+| --- | --- |
+| `komo.co.il` | Working — the current source of results |
+| `ad.co.il` | Reachable, returns nothing; listings not triggered by scrolling yet |
+| `onmap.co.il` | Reachable, returns nothing; same |
+| `anglo-saxon.co.il` | Reachable; the Gedera search URL is unverified |
 
-Filters live at the top of `gedera-scan.mjs`: `GEDERA` holds Yad2's location
-ids and `MIN_ROOMS` / `MAX_ROOMS` set the room range.
+**Not covered:** Yad2, Madlan and Homeless answer this runner with an anti-bot
+challenge (Radware Bot Manager and Cloudflare) because the requests come from
+a datacenter IP. Getting past that needs residential proxies or CAPTCHA
+solving, which this project does not do. The same code run from a home IP
+would reach them. Facebook groups are also out: reading them requires an
+authenticated account, and the Graph API has not exposed group posts since
+2020.
 
-## Maintenance
+Adding a board is one entry in `BOARDS`. Use `probe-sources.mjs` to check that
+a candidate answers at all, then `render-probe.mjs` to see how it structures
+listings once rendered.
 
-These boards are scraped, not consumed through a supported API, so payload
-changes are expected over time. Listings are located by shape — any object
-carrying both a room count and a price — rather than by a fixed path, so
-moderate reshuffling is tolerated. If a source starts reporting `0 listings`
-while the site clearly has matches, its response format has changed and the
-extractor for that source needs updating.
+## How extraction works
+
+Extraction keys on content rather than CSS selectors: a card is the innermost
+element stating a room count, and the listing link is the nearest anchor found
+by climbing from it. This works unchanged across boards and survives the
+hashed CSS-module class names they ship (`title___2JZH2`), which change between
+deploys.
+
+Guards worth knowing, each added after it went wrong in a live run:
+
+- Filter chips, headings and nav also state room counts, so they are excluded
+  and a listing must additionally quote a price or link to a numbered ad page.
+- Every row must resolve to its own listing URL; anything else is dropped and
+  counted, so a regression is visible rather than a silently shorter digest.
+- A board gets a second attempt with a longer timeout before being reported as
+  failed — one slow response used to cost the entire digest.
+- A failing board is named in the digest instead of reading as "no listings".

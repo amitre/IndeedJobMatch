@@ -123,10 +123,10 @@ async function loadSeen() {
 
 /* --------------------------------------------------------------- rendering */
 
+/** Boards give no title field, so build one from the parts worth reading. */
 function describe(l) {
-  // The card text is the only title these boards give us; trim it to the part
-  // that reads as a description rather than a wall of badges.
-  return l.text?.split(/\s{2,}|\|/)[0]?.slice(0, 90) || `${l.rooms} חדרים`;
+  const title = [l.type, l.address].filter(Boolean).join(' · ');
+  return title || l.text?.slice(0, 90) || `${l.rooms} חדרים`;
 }
 
 function renderMarkdown({ listings, errors, generatedAt }) {

@@ -33,7 +33,9 @@ export function extractListings({ minRooms, maxRooms, requireCity }) {
   const listings = [];
   const seenHref = new Set();
 
-  for (const el of document.querySelectorAll('div,li,article,section,td,p,span')) {
+  // `a` is included: some boards put the card text straight in the anchor,
+  // and without it those cards are never considered at all.
+  for (const el of document.querySelectorAll('a,div,li,article,section,td,p,span')) {
     const text = (el.textContent ?? '').replace(/\s+/g, ' ').trim();
     const roomsMatch = text.match(ROOMS);
     if (!roomsMatch || text.length > 600) continue;
@@ -90,11 +92,24 @@ export function extractListings({ minRooms, maxRooms, requireCity }) {
     const hasAdId = /\d{4,}/.test(new URL(absolute).search + new URL(absolute).pathname);
     if (!priceMatch && !hasAdId) continue;
 
+    // Cards read "<address> <price> <type> N חדרים (M מ"ר) ... <boilerplate>",
+    // so the address is what precedes the price and the type is the words
+    // immediately before the room count.
+    // A card without a price still says so, and that phrase marks the same
+    // boundary - keying on it stops the type from swallowing "לא צוין מחיר".
+    const marker = priceMatch?.[0] ?? (cardText.includes('לא צוין מחיר') ? 'לא צוין מחיר' : null);
+    const markerAt = marker ? cardText.indexOf(marker) : -1;
+    const address = markerAt > 0 ? cardText.slice(0, markerAt).trim() : '';
+    const afterMarker = markerAt >= 0 ? cardText.slice(markerAt + marker.length) : cardText;
+    const type = afterMarker.match(/^\s*([^\d]{2,20}?)\s*\d+(?:\.\d)?\s*חדרים/)?.[1]?.trim();
+
     listings.push({
       rooms,
       price: num(priceMatch?.[1] ?? priceMatch?.[2]),
       sqm: num(cardText.match(SQM)?.[1]),
       floor: cardText.match(FLOOR)?.[1],
+      address: address || undefined,
+      type: type || undefined,
       url: absolute,
       text: cardText.slice(0, 200),
     });
