@@ -19,12 +19,21 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
+    # Driving four boards in a browser, with a hard stop if one hangs.
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The boards render their listings client-side, so the scan drives a real
+      # browser rather than fetching HTML.
+      - run: npx playwright install --with-deps chromium
 
       - name: Scan listing boards
         id: scan
